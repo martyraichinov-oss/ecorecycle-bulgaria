@@ -138,53 +138,44 @@ RECYCLING_RULES = {
     7: {"name": "OTHER", "status": "error", "msg": "Не се хвърля в жълтия контейнер! Опасно за рециклиране или изисква специализиран пункт. Изхвърлете в ОБЩИЯ контейнер."},
 }
 
-# 7. DEBUG SECTION - Display supported models
-with st.expander("🔧 Debug Info - Supported Models"):
-    st.write("**Available models that support generateContent:**")
-    
-    available_models, error = get_supported_models()
-    
-    if error:
-        st.error(f"Error retrieving models: {error}")
-    elif not available_models:
-        st.warning("No models found. Please check your API key configuration.")
-    else:
-        st.write(f"**Total models available: {len(available_models)}**")
-        for idx, model in enumerate(available_models, 1):
-            st.write(f"{idx}. `{model}`")
-        
-        # Show which model will be used
-        selected_model, selection_error = select_best_model(available_models)
-        if selection_error:
-            st.error(f"Model selection error: {selection_error}")
-        else:
-            st.success(f"**Selected model for processing: `{selected_model}`**")
-
-# 8. Main Input: File Uploader
+# 7. Main Input: Camera & File Uploader
 st.divider()
-uploaded_file = st.file_uploader(
-    "Снимайте или качете снимка на символа за рециклиране", 
-    type=["jpg", "jpeg", "png"],
-    help="Търсете триъгълника със стрелки и цифра вътре."
-)
+st.write("### Как искате да сканирате етикета?")
 
-if uploaded_file is not None:
-    # Load and display image
-    image = Image.open(uploaded_file)
-    st.image(image, caption='Качена снимка', use_container_width=True)
+# Използваме табове за по-добро потребителско изживяване на мобилни устройства
+tab1, tab2 = st.tabs(["📸 Снимане с камера", "📁 Качване от галерия"])
+
+with tab1:
+    camera_file = st.camera_input("Насочете камерата към символа за рециклиране")
+
+with tab2:
+    uploaded_file = st.file_uploader(
+        "Изберете снимка от устройството си", 
+        type=["jpg", "jpeg", "png"],
+        help="Търсете триъгълника със стрелки и цифра вътре."
+    )
+
+# Определяме кой файл да обработим
+image_to_process = camera_file if camera_file is not None else uploaded_file
+
+if image_to_process is not None:
+    # Зареждаме снимката
+    image = Image.open(image_to_process)
     
-    # Get available models and select the best one
+    # Ако идва от галерията, я показваме (камерата си има собствено превю)
+    if uploaded_file is not None:
+         st.image(image, caption='Качена снимка', use_container_width=True)
+    
     available_models, error = get_supported_models()
     selected_model, selection_error = select_best_model(available_models)
     
     if selection_error or not selected_model:
-        st.error(f"Cannot process image: {selection_error or 'No model selected'}")
+        st.error(f"Временен проблем със сървъра. Моля, опитайте по-късно.")
     else:
         with st.spinner('Анализиране на етикета чрез AI...'):
-            # Call Gemini function with selected model
             code = extract_recycling_code_gemini(image, selected_model)
             
-            # 9. UI Output
+            # UI Output
             if code != "UNKNOWN":
                 rule = RECYCLING_RULES.get(code)
                 
@@ -195,7 +186,7 @@ if uploaded_file is not None:
                 else:
                     st.error(rule["msg"])
             else:
-                st.warning("Не успяхме да разчетем кода. Моля, снимайте етикета по-отблизо и на добра светлина.")
+                st.warning("Не успяхме да разчетем кода. Моля, уверете се, че символът е добре осветен и на фокус.")
 
 st.divider()
 st.info("💡 **Знаете ли че?** Рециклирането на един тон пластмаса спестява енергията, необходима на две домакинства за цяла година.")
